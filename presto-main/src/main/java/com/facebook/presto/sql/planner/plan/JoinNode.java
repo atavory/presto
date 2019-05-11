@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Join;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -46,14 +46,14 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class JoinNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final Type type;
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
     private final List<Symbol> outputSymbols;
-    private final Optional<Expression> filter;
+    private final Optional<RowExpression> filter;
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
@@ -65,7 +65,7 @@ public class JoinNode
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("filter") Optional<Expression> filter,
+            @JsonProperty("filter") Optional<RowExpression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType)
@@ -193,25 +193,6 @@ public class JoinNode
         {
             return joinLabel;
         }
-
-        public static Type typeConvert(Join.Type joinType)
-        {
-            // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
-            switch (joinType) {
-                case CROSS:
-                case IMPLICIT:
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                    return Type.RIGHT;
-                case FULL:
-                    return Type.FULL;
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
-            }
-        }
     }
 
     @JsonProperty("type")
@@ -239,15 +220,15 @@ public class JoinNode
     }
 
     @JsonProperty("filter")
-    public Optional<Expression> getFilter()
+    public Optional<RowExpression> getFilter()
     {
         return filter;
     }
 
-    public Optional<SortExpressionContext> getSortExpressionContext()
+    public Optional<SortExpressionContext> getSortExpressionContext(FunctionManager functionManager)
     {
         return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter));
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter, functionManager));
     }
 
     @JsonProperty("leftHashSymbol")
@@ -282,7 +263,7 @@ public class JoinNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitJoin(this, context);
     }
@@ -326,11 +307,6 @@ public class JoinNode
         public Symbol getRight()
         {
             return right;
-        }
-
-        public ComparisonExpression toExpression()
-        {
-            return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
         }
 
         public EquiJoinClause flip()

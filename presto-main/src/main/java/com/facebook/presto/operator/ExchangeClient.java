@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.buffer.PageCodecMarker;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
@@ -45,18 +46,30 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * {@link ExchangeClient} is the client on receiver side, used in operators requiring data exchange from other tasks,
+ * such as {@link ExchangeOperator} and {@link MergeOperator}.
+ * For each sender that ExchangeClient receives data from, a {@link HttpPageBufferClient} is used in ExchangeClient to communicate with the sender, i.e.
+ *
+ * <pre>
+ *                    /   HttpPageBufferClient_1  - - - Remote Source 1
+ *     ExchangeClient --  HttpPageBufferClient_2  - - - Remote Source 2
+ *                    \   ...
+ *                     \  HttpPageBufferClient_n  - - - Remote Source n
+ * </pre>
+ *
+ */
 @ThreadSafe
 public class ExchangeClient
         implements Closeable
 {
-    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, UNCOMPRESSED, 0, 0);
+    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0);
 
     private final long bufferCapacity;
     private final DataSize maxResponseSize;

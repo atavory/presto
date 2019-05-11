@@ -54,13 +54,9 @@ public class AccumuloPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Accumulo connector does not support partition commit");
         AccumuloTableHandle tableHandle = (AccumuloTableHandle) outputTableHandle;
         return new AccumuloPageSink(connector, client.getTable(tableHandle.toSchemaTableName()), username);
     }
 
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
-    {
-        return createPageSink(transactionHandle, session, (ConnectorOutputTableHandle) insertTableHandle);
-    }
 }

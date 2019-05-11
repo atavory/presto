@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SpatialJoinNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     public enum Type
     {
@@ -67,7 +68,7 @@ public class SpatialJoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<Symbol> outputSymbols;
-    private final Expression filter;
+    private final RowExpression filter;
     private final Optional<Symbol> leftPartitionSymbol;
     private final Optional<Symbol> rightPartitionSymbol;
     private final Optional<String> kdbTree;
@@ -86,7 +87,7 @@ public class SpatialJoinNode
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("filter") Expression filter,
+            @JsonProperty("filter") RowExpression filter,
             @JsonProperty("leftPartitionSymbol") Optional<Symbol> leftPartitionSymbol,
             @JsonProperty("rightPartitionSymbol") Optional<Symbol> rightPartitionSymbol,
             @JsonProperty("kdbTree") Optional<String> kdbTree)
@@ -141,7 +142,7 @@ public class SpatialJoinNode
     }
 
     @JsonProperty("filter")
-    public Expression getFilter()
+    public RowExpression getFilter()
     {
         return filter;
     }
@@ -184,7 +185,7 @@ public class SpatialJoinNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSpatialJoin(this, context);
     }

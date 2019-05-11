@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -43,7 +44,6 @@ import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -74,6 +74,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUnique;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -99,7 +100,7 @@ public final class ValidateDependenciesChecker
     }
 
     private static class Visitor
-            extends PlanVisitor<Void, Set<Symbol>>
+            extends InternalPlanVisitor<Void, Set<Symbol>>
     {
         @Override
         protected Void visitPlan(PlanNode node, Set<Symbol> boundSymbols)
@@ -126,7 +127,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation.getCall());
+                Set<Symbol> dependencies = extractUnique(aggregation);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
                 aggregation.getMask().ifPresent(mask -> {
                     checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputSymbols());
@@ -352,7 +353,13 @@ public final class ValidateDependenciesChecker
             }
 
             node.getFilter().ifPresent(predicate -> {
-                Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(predicate);
+                Set<Symbol> predicateSymbols;
+                if (isExpression(predicate)) {
+                    predicateSymbols = SymbolsExtractor.extractUnique(castToExpression(predicate));
+                }
+                else {
+                    predicateSymbols = SymbolsExtractor.extractUnique(predicate);
+                }
                 checkArgument(
                         allInputs.containsAll(predicateSymbols),
                         "Symbol from filter (%s) not in sources (%s)",
@@ -396,7 +403,14 @@ public final class ValidateDependenciesChecker
                     .addAll(rightInputs)
                     .build();
 
-            Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+            Set<Symbol> predicateSymbols;
+            if (isExpression(node.getFilter())) {
+                predicateSymbols = SymbolsExtractor.extractUnique(castToExpression(node.getFilter()));
+            }
+            else {
+                predicateSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+            }
+
             checkArgument(
                     allInputs.containsAll(predicateSymbols),
                     "Symbol from filter (%s) not in sources (%s)",

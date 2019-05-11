@@ -19,4 +19,10 @@ package com.facebook.presto.spi.relation;
 public interface RowExpressionService
 {
     DomainTranslator getDomainTranslator();
+
+    ExpressionOptimizer getExpressionOptimizer();
+
+    PredicateCompiler getPredicateCompiler();
+
+    DeterminismEvaluator getDeterminismEvaluator();
 }

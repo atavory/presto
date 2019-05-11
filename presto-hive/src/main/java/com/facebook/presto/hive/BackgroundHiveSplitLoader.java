@@ -108,6 +108,7 @@ public class BackgroundHiveSplitLoader
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
+    private final boolean schedulerUsesHostAddresses;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -140,7 +141,8 @@ public class BackgroundHiveSplitLoader
             DirectoryLister directoryLister,
             Executor executor,
             int loaderConcurrency,
-            boolean recursiveDirWalkerEnabled)
+            boolean recursiveDirWalkerEnabled,
+            boolean schedulerUsesHostAddresses)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
@@ -154,6 +156,7 @@ public class BackgroundHiveSplitLoader
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
 
     @Override
@@ -305,15 +308,12 @@ public class BackgroundHiveSplitLoader
 
                 InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                         targetFilesystem,
-                        partitionName,
                         inputFormat,
-                        schema,
-                        partitionKeys,
                         effectivePredicate,
-                        partition.getColumnCoercions(),
-                        Optional.empty(),
                         isForceLocalScheduling(session),
-                        s3SelectPushdownEnabled);
+                        s3SelectPushdownEnabled,
+                        new HiveSplitPartitionInfo(schema, path.toUri(), partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()),
+                        schedulerUsesHostAddresses);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
                     return COMPLETED_FUTURE;
@@ -341,15 +341,18 @@ public class BackgroundHiveSplitLoader
         }
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 fs,
-                partitionName,
                 inputFormat,
-                schema,
-                partitionKeys,
                 effectivePredicate,
-                partition.getColumnCoercions(),
-                bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 isForceLocalScheduling(session),
-                s3SelectPushdownEnabled);
+                s3SelectPushdownEnabled,
+                new HiveSplitPartitionInfo(
+                        schema,
+                        path.toUri(),
+                        partitionKeys,
+                        partitionName,
+                        partition.getColumnCoercions(),
+                        bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()),
+                schedulerUsesHostAddresses);
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
@@ -366,7 +369,7 @@ public class BackgroundHiveSplitLoader
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName));
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
@@ -409,7 +412,13 @@ public class BackgroundHiveSplitLoader
                 .iterator();
     }
 
-    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion)
+    private List<InternalHiveSplit> getBucketedSplits(
+            Path path,
+            FileSystem fileSystem,
+            InternalHiveSplitFactory splitFactory,
+            BucketSplitInfo bucketSplitInfo,
+            Optional<BucketConversion> bucketConversion,
+            String partitionName)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -428,7 +437,7 @@ public class BackgroundHiveSplitLoader
                     HIVE_INVALID_BUCKET_FILES,
                     format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
                             new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                            splitFactory.getPartitionName()));
+                            partitionName));
         }
 
         // verify we found one file per bucket
@@ -439,7 +448,7 @@ public class BackgroundHiveSplitLoader
                             new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                             files.size(),
                             partitionBucketCount,
-                            splitFactory.getPartitionName()));
+                            partitionName));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
@@ -591,7 +600,7 @@ public class BackgroundHiveSplitLoader
          * <ul>
          * <li>Filter on "$bucket" column. e.g. {@code "$bucket" between 0 and 100}
          * <li>Single-value equality filter on all bucket columns. e.g. for a table with two bucketing columns,
-         *     {@code bucketCol1 = 'a' AND bucketCol2 = 123}
+         * {@code bucketCol1 = 'a' AND bucketCol2 = 123}
          * </ul>
          */
         public boolean isTableBucketEnabled(int tableBucketNumber)

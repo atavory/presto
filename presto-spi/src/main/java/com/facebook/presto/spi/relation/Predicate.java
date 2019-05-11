@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 
-public class PlanNodeIdAllocator
+public interface Predicate
 {
-    private int nextId;
+    int[] getInputChannels();
 
-    public PlanNodeId getNextId()
-    {
-        return new PlanNodeId(Integer.toString(nextId++));
-    }
+    boolean evaluate(ConnectorSession session, Page page, int position);
 }

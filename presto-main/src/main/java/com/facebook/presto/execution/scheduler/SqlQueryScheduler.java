@@ -34,6 +34,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -42,7 +43,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -58,7 +58,6 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +73,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
+import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
@@ -432,7 +432,7 @@ public class SqlQueryScheduler
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session);
             if (!splitSources.isEmpty()) {
                 // contains local source
-                List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
+                List<PlanNodeId> schedulingOrder = plan.getFragment().getTableScanSchedulingOrder();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
@@ -454,8 +454,14 @@ public class SqlQueryScheduler
                     // verify execution is consistent with planner's decision on dynamic lifespan schedule
                     verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
 
-                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).allNodes());
-                    Collections.shuffle(stageNodeList);
+                    if (!bucketNodeMap.isDynamic()) {
+                        stageNodeList = ((FixedBucketNodeMap) bucketNodeMap).getBucketToNode().stream()
+                                .distinct()
+                                .collect(toImmutableList());
+                    }
+                    else {
+                        stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)));
+                    }
                     bucketToPartition = Optional.empty();
                 }
                 else {
@@ -757,11 +763,11 @@ public class SqlQueryScheduler
             }
         }
         catch (Throwable t) {
+            scheduling.set(false);
             queryStateMachine.transitionToFailed(t);
             throw t;
         }
         finally {
-            scheduling.set(false);
             RuntimeException closeError = new RuntimeException();
             for (SqlStageExecution stage : stages) {
                 try {

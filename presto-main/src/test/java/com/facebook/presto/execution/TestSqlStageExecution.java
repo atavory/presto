@@ -21,6 +21,7 @@ import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -28,7 +29,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
@@ -177,6 +177,7 @@ public class TestSqlStageExecution
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StageExecutionDescriptor.ungroupedExecution(),
+                false,
                 StatsAndCosts.empty(),
                 Optional.empty());
     }

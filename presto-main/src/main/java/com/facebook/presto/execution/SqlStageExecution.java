@@ -22,10 +22,10 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -229,8 +229,8 @@ public final class SqlStageExecution
             stateMachine.transitionToFinished();
         }
 
-        for (PlanNodeId partitionedSource : stateMachine.getFragment().getPartitionedSources()) {
-            schedulingComplete(partitionedSource);
+        for (PlanNodeId tableScanPlanNodeId : stateMachine.getFragment().getTableScanSchedulingOrder()) {
+            schedulingComplete(tableScanPlanNodeId);
         }
     }
 
@@ -380,7 +380,7 @@ public final class SqlStageExecution
         }
         splitsScheduled.set(true);
 
-        checkArgument(stateMachine.getFragment().getPartitionedSources().containsAll(splits.keySet()), "Invalid splits");
+        checkArgument(stateMachine.getFragment().getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);

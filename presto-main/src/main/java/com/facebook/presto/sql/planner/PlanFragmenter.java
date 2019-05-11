@@ -37,6 +37,8 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -46,13 +48,13 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -149,7 +151,9 @@ public class PlanFragmenter
                 idAllocator,
                 new SymbolAllocator(plan.getTypes().allTypes()));
 
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+        FragmentProperties properties = new FragmentProperties(
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()),
+                false);
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -231,7 +235,7 @@ public class PlanFragmenter
                 newRoot,
                 fragment.getSymbols(),
                 fragment.getPartitioning(),
-                fragment.getPartitionedSources(),
+                fragment.getTableScanSchedulingOrder(),
                 new PartitioningScheme(
                         newOutputPartitioning,
                         outputPartitioningScheme.getOutputLayout(),
@@ -239,6 +243,7 @@ public class PlanFragmenter
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
+                fragment.isMaterializedExchangeSource(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation());
 
@@ -315,6 +320,7 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
+                    properties.isMaterializedExchangeSource(),
                     statsAndCosts.getForSubplan(root),
                     Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)));
 
@@ -416,7 +422,9 @@ public class PlanFragmenter
 
             ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
             for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
-                FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
+                FragmentProperties childProperties = new FragmentProperties(
+                        partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)),
+                        context.get().isMaterializedExchangeSource());
                 builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
             }
 
@@ -476,9 +484,9 @@ public class PlanFragmenter
                     partitioningSymbolAssignments.getConstants(),
                     partitioningMetadata);
 
-            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
-                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                    write.getOutputSymbols()));
+            FragmentProperties writeProperties = new FragmentProperties(
+                    new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), write.getOutputSymbols()),
+                    true);
             writeProperties.setCoordinatorOnlyDistribution();
 
             List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
@@ -646,6 +654,7 @@ public class PlanFragmenter
                                             insertHandle,
                                             symbolAllocator.newSymbol("partialrows", BIGINT),
                                             symbolAllocator.newSymbol("fragment", VARBINARY),
+                                            symbolAllocator.newSymbol("tablecommitcontext", VARBINARY),
                                             outputs,
                                             outputColumnNames,
                                             Optional.of(new PartitioningScheme(
@@ -675,13 +684,15 @@ public class PlanFragmenter
         private final List<SubPlan> children = new ArrayList<>();
 
         private final PartitioningScheme partitioningScheme;
+        private final boolean materializedExchangeSource;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
-        public FragmentProperties(PartitioningScheme partitioningScheme)
+        public FragmentProperties(PartitioningScheme partitioningScheme, boolean materializedExchangeSource)
         {
             this.partitioningScheme = partitioningScheme;
+            this.materializedExchangeSource = materializedExchangeSource;
         }
 
         public List<SubPlan> getChildren()
@@ -800,6 +811,11 @@ public class PlanFragmenter
             return partitioningScheme;
         }
 
+        public boolean isMaterializedExchangeSource()
+        {
+            return materializedExchangeSource;
+        }
+
         public PartitioningHandle getPartitioningHandle()
         {
             return partitioningHandle.get();
@@ -812,7 +828,7 @@ public class PlanFragmenter
     }
 
     private static class GroupedExecutionTagger
-            extends PlanVisitor<GroupedExecutionProperties, Void>
+            extends InternalPlanVisitor<GroupedExecutionProperties, Void>
     {
         private final Session session;
         private final Metadata metadata;
@@ -937,6 +953,16 @@ public class PlanFragmenter
         }
 
         private GroupedExecutionProperties processWindowFunction(PlanNode node)
+        {
+            GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
+            }
+            return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
+        public GroupedExecutionProperties visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {

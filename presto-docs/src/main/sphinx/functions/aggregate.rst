@@ -277,8 +277,9 @@ Approximate Aggregate Functions
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
-    for all ``value``\ s with a per-item weight of ``weight``. The algorithm
-    is based loosely on:
+    for all ``value``\ s with a per-item weight of ``weight``.  The keys of the
+    returned map are roughly the center of the bin, and the entry is the total
+    weight of the bin.  The algorithm is based loosely on:
 
     .. code-block:: none
 
@@ -292,6 +293,7 @@ Approximate Aggregate Functions
     Computes an approximate histogram with up to ``buckets`` number of buckets
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+    In this case, the total weight in the returned map is the count of items in the bin.
 
 Statistical Aggregate Functions
 -------------------------------
@@ -307,6 +309,19 @@ Statistical Aggregate Functions
 .. function:: covar_samp(y, x) -> double
 
     Returns the sample covariance of input values.
+
+.. function:: entropy(c) -> double
+
+    Returns the log-2 entropy of count input-values.
+
+    .. code-block:: none
+
+        entropy(c) = \sum_i [ c_i / \sum_j [c_j] \log_2(\sum_j [c_j] / c_i) ]
+
+    ``c`` must be a ``bigint`` column of non-negative values.
+
+    The function ignores any ``NULL`` count. If the sum of non-``NULL`` counts is 0,
+    it returns 0.
 
 .. function:: kurtosis(x) -> double
 
@@ -330,6 +345,85 @@ Statistical Aggregate Functions
 .. function:: skewness(x) -> double
 
     Returns the skewness of all input values.
+
+.. function:: sample_adjusted_mutual_information_score(bucket_count, min, max, outcome, value, method, weight) -> double
+
+    Returns the chance-adjusted mutual information score between samples of
+    `outcome`, a categorical `int` column, and `value`, a `double` column. See :func:`sample_mutual_information`
+    for more details.
+
+.. function:: sample_adjusted_dmutual_information_score(bucket_count, min, max, outcome, value, method) -> double
+
+    Same as a more extended version of :func:`sample_adjusted_mutual_information_score`, but with `weight` equals to 1.0.
+
+.. function:: sample_adjusted_mutual_information_score(bucket_count, min, max, outcome, value, method) -> double
+
+    Same as a more extended version of :func:`sample_adjusted_mutual_information_score`, but with `method` equals to `'mle'`.
+
+.. function:: sample_entropy(bucket_count, min, max, value, method, weight) -> double
+
+   Returns the approximate log-2 entropy from a random variable's sample outcomes. Broadly speaking,
+   the function internally creates a conceptual histogram of the sample values, calculates the counts, and
+   then approximates the entropy as in :func:`entropy`. Additionally, though, it also adjusts for
+   errors in estimating the entropy from bin samples.
+
+   The parameter `bucket_count` determines the number of histogram method. The parameter `min` is the minimal value
+   of a sample - all values smaller than `min`, will be made into `min`. The parameter `max` is the minimal value
+   of a sample - all values larger than `max`, will be made into `max`. The parameter `weight` is the weight
+   of the sample, and must be non-negative. The parameter `method` describes the estimation method, and is
+   described further next.
+
+   If `method` is `'mle'`, then maximum likelihood will be used for estimation. This method
+   uses a small amount of memory, but can give bad results when the number of samples is not much
+   larger than the number of buckets.
+   If method is `'jacknife'`, the jacknife method will be used. This method can use a lot of memory,
+   if the cardinality of distinct weights is large.
+   See more in
+
+    .. code-block:: none
+
+        Beirlant, Dudewicz, Gyorfi, and van der Meulen,
+        "Nonparametric entropy estimation: an overview", (2001)
+
+.. function:: sample_entropy(bucket_count, min, max, value, method) -> double
+
+    Same as a more extended version of :func:`sample_entropy`, but with `weight` equals to 1.0.
+
+.. function:: sample_entropy(bucket_count, min, max, value) -> double
+
+    Same as a more extended version of :func:`sample_entropy`, but with `method` equals to `'mle'`.
+
+.. function:: sample_mutual_information_score(bucket_count, min, max, outcome, value, method, weight) -> double
+
+    Returns the mutual information score between samples of
+    `outcome`, a categorical `int` column, and `value`, a `double` column. The samples have weight
+    `weight`, a non-negative weight column. The mutual information is non-negative.
+
+    The mutual information is estimated by estimating the reduction in entropy by outcome. The
+    other parameters, `bucket_count`, `min`, `max` and `method`, determine this. See :func:`sample_entropy`
+    for further details.
+
+.. function:: sample_mutual_information_score(bucket_count, min, max, outcome, value, method) -> double
+
+    Same as a more extended version of :func:`sample_mutual_information_score`, but with `weight` equals to 1.0.
+
+.. function:: sample_mutual_information_score(bucket_count, min, max, outcome, value, method) -> double
+
+    Same as a more extended version of :func:`sample_mutual_information_score`, but with `method` equals to `'mle'`.
+
+.. function:: sample_normalized_mutual_information_score(bucket_count, min, max, outcome, value, method, weight) -> double
+
+    Returns the normalized mutual information score between samples of
+    `outcome`, a categorical `int` column, and `value`, a `double` column. See :func:`sample_mutual_information`
+    for more details. The normalized mutual information is between 0 and 1.
+
+.. function:: sample_normalized_mutual_information_score(bucket_count, min, max, outcome, value, method) -> double
+
+    Same as a more extended version of :func:`sample_normalizedmutual_information_score`, but with `weight` equals to 1.0.
+
+.. function:: sample_normalized_mutual_information_score(bucket_count, min, max, outcome, value, method) -> double
+
+    Same as a more extended version of :func:`sample_normalized_mutual_information_score`, but with `method` equals to `'mle'`.
 
 .. function:: stddev(x) -> double
 
