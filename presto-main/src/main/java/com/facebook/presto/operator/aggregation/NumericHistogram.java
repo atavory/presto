@@ -18,14 +18,17 @@ import com.google.common.primitives.Doubles;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.Arrays;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.PriorityQueue;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -34,6 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class NumericHistogram
+        implements Cloneable, Iterable<NumericHistogram.Bucket>
 {
     private static final byte FORMAT_TAG = 0;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(NumericHistogram.class).instanceSize();
@@ -43,6 +47,18 @@ public class NumericHistogram
     private final double[] weights;
 
     private int nextIndex;
+
+    public static class Bucket
+    {
+        public final double value;
+        public final double weight;
+
+        public Bucket(double value, double weight)
+        {
+            this.value = value;
+            this.weight = weight;
+        }
+    }
 
     public NumericHistogram(int maxBuckets)
     {
@@ -61,10 +77,13 @@ public class NumericHistogram
 
     public NumericHistogram(Slice serialized, int buffer)
     {
-        requireNonNull(serialized, "serialized is null");
-        checkArgument(buffer >= 1, "buffer must be >= 1");
+        this(serialized.getInput(), buffer);
+    }
 
-        SliceInput input = serialized.getInput();
+    public NumericHistogram(SliceInput input, int buffer)
+    {
+        requireNonNull(input, "serialized is null");
+        checkArgument(buffer >= 1, "buffer must be >= 1");
 
         checkArgument(input.readByte() == FORMAT_TAG, "Unsupported format tag");
 
@@ -77,24 +96,34 @@ public class NumericHistogram
         input.readBytes(Slices.wrappedDoubleArray(weights), nextIndex * SizeOf.SIZE_OF_DOUBLE);
     }
 
-    public Slice serialize()
+    public int getRequiredBytesForSerialization()
     {
-        compact();
-
-        int requiredBytes = SizeOf.SIZE_OF_BYTE + // format
+        return SizeOf.SIZE_OF_BYTE + // format
                 SizeOf.SIZE_OF_INT + // max buckets
                 SizeOf.SIZE_OF_INT + // entry count
                 SizeOf.SIZE_OF_DOUBLE * nextIndex + // values
                 SizeOf.SIZE_OF_DOUBLE * nextIndex; // weights
+    }
 
-        return Slices.allocate(requiredBytes)
-                .getOutput()
+    public void serialize(SliceOutput sliceOut)
+    {
+        sliceOut
                 .appendByte(FORMAT_TAG)
                 .appendInt(maxBuckets)
                 .appendInt(nextIndex)
                 .appendBytes(Slices.wrappedDoubleArray(values, 0, nextIndex))
                 .appendBytes(Slices.wrappedDoubleArray(weights, 0, nextIndex))
                 .getUnderlyingSlice();
+    }
+
+    public Slice serialize()
+    {
+        compact();
+
+        final int requiredBytes = getRequiredBytesForSerialization();
+        final Slice slice = Slices.allocate(requiredBytes);
+        serialize(slice.getOutput());
+        return slice;
     }
 
     public long estimatedInMemorySize()
@@ -152,6 +181,42 @@ public class NumericHistogram
             result.put(values[i], weights[i]);
         }
         return result;
+    }
+
+    @Override
+    public Iterator<Bucket> iterator()
+    {
+        compact();
+
+        return new Iterator<Bucket>()
+        {
+            int i;
+
+            @Override
+            public boolean hasNext()
+            {
+                return i < nextIndex;
+            }
+
+            @Override
+            public Bucket next()
+            {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                final Bucket bucket = new Bucket(values[i], weights[i]);
+                ++i;
+
+                return bucket;
+            }
+
+            @Override
+            public void remove()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     @VisibleForTesting
@@ -414,5 +479,17 @@ public class NumericHistogram
                     .add("valid", valid)
                     .toString();
         }
+    }
+
+    @Override
+    public NumericHistogram clone()
+    {
+        final NumericHistogram cloned = new NumericHistogram(maxBuckets);
+        for (int i = 0; i < Math.min(cloned.maxBuckets, maxBuckets); ++i) {
+            cloned.values[i] = values[i];
+            cloned.weights[i] = weights[i];
+        }
+        cloned.nextIndex = nextIndex;
+        return cloned;
     }
 }
