@@ -169,28 +169,41 @@ public class SampleEntropyStateSerializer
             int index,
             SampleEntropyState state)
     {
-        final SliceInput input = VARBINARY.getSlice(block, index).getInput();
+        SampleEntropyStateSerializer.deserialize(
+                VARBINARY.getSlice(block, index).getInput(),
+                state);
+    }
 
+    public static void deserialize(
+            SliceInput input,
+            SampleEntropyState state)
+    {
         final int method = input.readInt();
+        final SampleEntropyStateStrategy strategy =
+                SampleEntropyStateSerializer.deserializeStrategy(input);
+        if (strategy == null && state.getStrategy() != null) {
+            throw new PrestoException(
+                    CONSTRAINT_VIOLATION,
+                    "strategy is not null for null method");
+        }
+        state.setStrategy(strategy);
+    }
 
+    public static SampleEntropyStateStrategy deserializeStrategy(SliceInput input)
+    {
+        final int method = input.readInt();
         if (method == 0) {
-            if (state.getStrategy() != null) {
-                throw new PrestoException(
-                        CONSTRAINT_VIOLATION,
-                        "strategy is not null for null method");
-            }
+            return null;
         }
-        else if (method == 1) {
-            state.setStrategy(new SampleEntropyStateHistogramMLEStrategy(input));
+        if (method == 1) {
+            return new SampleEntropyStateHistogramMLEStrategy(input);
         }
-        else if (method == 2) {
-            state.setStrategy(new SampleEntropyStateFixedHistogramMLEStrategy(input));
+        if (method == 2) {
+            return new SampleEntropyStateFixedHistogramMLEStrategy(input);
         }
-        else if (method == 3) {
-            state.setStrategy(new SampleEntropyStateFixedHistogramJacknifeStrategy(input));
+        if (method == 3) {
+            return new SampleEntropyStateFixedHistogramJacknifeStrategy(input);
         }
-        else {
-            throw new InvalidParameterException("unknown method in deserialize");
-        }
+        throw new InvalidParameterException("unknown method in deserialize");
     }
 }
