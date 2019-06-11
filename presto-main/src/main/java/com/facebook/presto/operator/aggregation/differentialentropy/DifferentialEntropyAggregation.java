@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -26,15 +26,15 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-@AggregationFunction("sample_entropy")
-@Description("Computes entropy based on random-variable samples")
-public final class SampleEntropyAggregation
+@AggregationFunction("differential_entropy")
+@Description("Computes differential entropy based on random-variable samples")
+public final class DifferentialEntropyAggregation
 {
-    private SampleEntropyAggregation() {}
+    private DifferentialEntropyAggregation() {}
 
     @InputFunction
     public static void input(
-            @AggregationState SampleEntropyState state,
+            @AggregationState DifferentialEntropyState state,
             @SqlType(StandardTypes.BIGINT) long size,
             @SqlType(StandardTypes.DOUBLE) double sample,
             @SqlType(StandardTypes.DOUBLE) double weight,
@@ -47,7 +47,7 @@ public final class SampleEntropyAggregation
 
     @InputFunction
     public static void input(
-            @AggregationState SampleEntropyState state,
+            @AggregationState DifferentialEntropyState state,
             @SqlType(StandardTypes.BIGINT) long size,
             @SqlType(StandardTypes.DOUBLE) double sample,
             @SqlType(StandardTypes.DOUBLE) double weight,
@@ -58,7 +58,7 @@ public final class SampleEntropyAggregation
 
     @InputFunction
     public static void input(
-            @AggregationState SampleEntropyState state,
+            @AggregationState DifferentialEntropyState state,
             @SqlType(StandardTypes.BIGINT) long size,
             @SqlType(StandardTypes.DOUBLE) double sample,
             @SqlType(StandardTypes.DOUBLE) double weight)
@@ -75,7 +75,7 @@ public final class SampleEntropyAggregation
 
     @InputFunction
     public static void input(
-            @AggregationState SampleEntropyState state,
+            @AggregationState DifferentialEntropyState state,
             @SqlType(StandardTypes.BIGINT) long size,
             @SqlType(StandardTypes.DOUBLE) double sample)
     {
@@ -90,7 +90,7 @@ public final class SampleEntropyAggregation
     }
 
     protected static void inputImp(
-            SampleEntropyState state,
+            DifferentialEntropyState state,
             long size,
             double sample,
             Double weight,
@@ -100,38 +100,38 @@ public final class SampleEntropyAggregation
     {
         final String requestedMethod = method == null ? null : method.toStringUtf8();
         if (state.getStrategy() == null) {
-            state.setStrategy(SampleEntropyStateSerializer.create(
+            state.setStrategy(DifferentialEntropyStateSerializer.create(
                     size, requestedMethod, arg0, arg1));
         }
         if (weight == null) {
             weight = Double.valueOf(1.0);
         }
-        final SampleEntropyStateStrategy strategy = state.getStrategy();
-        SampleEntropyStateSerializer.validate(requestedMethod, strategy);
+        final DifferentialEntropyStateStrategy strategy = state.getStrategy();
+        DifferentialEntropyStateSerializer.validate(requestedMethod, strategy);
         strategy.validateParams(size, sample, weight, arg0, arg1);
         strategy.add(sample, weight);
     }
 
     @CombineFunction
     public static void combine(
-            @AggregationState SampleEntropyState state,
-            @AggregationState SampleEntropyState otherState)
+            @AggregationState DifferentialEntropyState state,
+            @AggregationState DifferentialEntropyState otherState)
     {
-        final SampleEntropyStateStrategy strategy = state.getStrategy();
-        final SampleEntropyStateStrategy otherStrategy = otherState.getStrategy();
+        final DifferentialEntropyStateStrategy strategy = state.getStrategy();
+        final DifferentialEntropyStateStrategy otherStrategy = otherState.getStrategy();
         if (strategy == null && otherStrategy != null) {
             state.setStrategy(otherStrategy.clone());
             return;
         }
         if (strategy != null && otherStrategy != null) {
-            SampleEntropyStateSerializer.combine(strategy, otherStrategy);
+            DifferentialEntropyStateSerializer.combine(strategy, otherStrategy);
         }
     }
 
     @OutputFunction("double")
-    public static void output(@AggregationState SampleEntropyState state, BlockBuilder out)
+    public static void output(@AggregationState DifferentialEntropyState state, BlockBuilder out)
     {
-        final SampleEntropyStateStrategy strategy = state.getStrategy();
+        final DifferentialEntropyStateStrategy strategy = state.getStrategy();
         if (strategy == null) {
             DOUBLE.writeDouble(out, 0.0);
             return;

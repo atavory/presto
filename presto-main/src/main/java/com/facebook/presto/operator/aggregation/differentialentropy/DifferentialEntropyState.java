@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
-public abstract class TestSampleEntropyFixedHistogramAggregation
-        extends TestSampleEntropyAggregation
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+
+@AccumulatorStateMetadata(
+        stateSerializerClass = DifferentialEntropyStateSerializer.class,
+        stateFactoryClass = DifferentialEntropyStateFactory.class)
+public interface DifferentialEntropyState
+        extends AccumulatorState
 {
-    protected TestSampleEntropyFixedHistogramAggregation(String method)
-    {
-        super(method, Double.valueOf(0.0), Double.valueOf(TestSampleEntropyAggregation.SIZE));
-    }
+    void setStrategy(DifferentialEntropyStateStrategy strategy);
+
+    DifferentialEntropyStateStrategy getStrategy();
 }

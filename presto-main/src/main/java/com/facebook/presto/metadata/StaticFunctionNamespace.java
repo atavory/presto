@@ -55,9 +55,9 @@ import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
-import com.facebook.presto.operator.aggregation.sampleentropy.SampleEntropyAggregation;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
@@ -465,7 +465,7 @@ class StaticFunctionNamespace
                 .aggregates(RealRegressionAggregation.class)
                 .aggregates(DoubleCorrelationAggregation.class)
                 .aggregates(RealCorrelationAggregation.class)
-                .aggregates(SampleEntropyAggregation.class)
+                .aggregates(DifferentialEntropyAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
                 .aggregates(BitwiseAndAggregation.class)
                 .scalar(RepeatFunction.class)

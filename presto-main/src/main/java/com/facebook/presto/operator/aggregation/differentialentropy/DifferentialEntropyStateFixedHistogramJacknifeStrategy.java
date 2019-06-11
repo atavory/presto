@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleBreakdownHistogram;
 import com.google.common.collect.Streams;
@@ -21,20 +21,24 @@ import io.airlift.slice.SliceOutput;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SampleEntropyStateFixedHistogramJacknifeStrategy
-        extends SampleEntropyStateFixedHistogramStrategy
+/*
+Calculates sample entropy using jacknife estimates on a fixed histogram.
+See http://cs.brown.edu/~pvaliant/unseen_nips.pdf.
+ */
+public class DifferentialEntropyStateFixedHistogramJacknifeStrategy
+        extends DifferentialEntropyStateFixedHistogramStrategy
 {
-    public SampleEntropyStateFixedHistogramJacknifeStrategy(long bucketCount, double min, double max)
+    public DifferentialEntropyStateFixedHistogramJacknifeStrategy(long bucketCount, double min, double max)
     {
         super(new FixedDoubleBreakdownHistogram((int) bucketCount, min, max));
     }
 
-    protected SampleEntropyStateFixedHistogramJacknifeStrategy(SampleEntropyStateFixedHistogramJacknifeStrategy other)
+    protected DifferentialEntropyStateFixedHistogramJacknifeStrategy(DifferentialEntropyStateFixedHistogramJacknifeStrategy other)
     {
         super(new FixedDoubleBreakdownHistogram(other.getBreakdownHistogram()));
     }
 
-    public SampleEntropyStateFixedHistogramJacknifeStrategy(SliceInput input)
+    public DifferentialEntropyStateFixedHistogramJacknifeStrategy(SliceInput input)
     {
         super(new FixedDoubleBreakdownHistogram(input));
     }
@@ -51,10 +55,10 @@ public class SampleEntropyStateFixedHistogramJacknifeStrategy
     }
 
     @Override
-    public void mergeWith(SampleEntropyStateStrategy other)
+    public void mergeWith(DifferentialEntropyStateStrategy other)
     {
         getBreakdownHistogram()
-                .mergeWith(((SampleEntropyStateFixedHistogramJacknifeStrategy) other).getBreakdownHistogram());
+                .mergeWith(((DifferentialEntropyStateFixedHistogramJacknifeStrategy) other).getBreakdownHistogram());
     }
 
     @Override
@@ -73,29 +77,35 @@ public class SampleEntropyStateFixedHistogramJacknifeStrategy
                             e.left,
                             e.breakdown.entrySet().stream().mapToDouble(w -> w.getKey() * w.getValue()).sum());
                 });
+        final double sumW =
+                bucketWeights.values().stream().mapToDouble(w -> w).sum();
+        if (sumW == 0.0) {
+            return 0.0;
+        }
         final long n = Streams.stream(getBreakdownHistogram())
                 .mapToLong(e -> e.breakdown.values().stream().mapToLong(i -> i).sum())
                 .sum();
-        final double sumW =
-                bucketWeights.values().stream().mapToDouble(w -> w).sum();
         final double sumWLogW =
                 bucketWeights.values().stream().mapToDouble(w -> w == 0.0 ? 0.0 : w * Math.log(w)).sum();
 
-        double entropy = n * calculateEntropy(sumW, sumWLogW);
+        double entropy = n * calculateEntropy(histogram.getWidth(), sumW, sumWLogW);
         entropy -= Streams.stream(getBreakdownHistogram().iterator()).mapToDouble(
                 e -> {
                     final double bucketWeight = bucketWeights.get(e.left);
+                    if (bucketWeight == 0.0) {
+                        return 0.0;
+                    }
                     return e.breakdown.entrySet().stream().mapToDouble(
                             bucketE -> {
                                 final double holdoutBucketWeight = Math.max(bucketWeight - bucketE.getKey(), 0);
                                 final double holdoutSumW =
                                         sumW - bucketWeight + holdoutBucketWeight;
                                 final double holdoutSumWLogW =
-                                        sumWLogW - bucketWeight * Math.log(bucketWeight) +
-                                                holdoutBucketWeight * Math.log(holdoutBucketWeight);
-                                return bucketE.getValue() * (n - 1) *
-                                        calculateEntropy(holdoutSumW, holdoutSumWLogW) /
+                                        sumWLogW - super.getXLogX(bucketWeight) + super.getXLogX(holdoutBucketWeight);
+                                double holdoutEntropy = bucketE.getValue() * (n - 1) *
+                                        calculateEntropy(histogram.getWidth(), holdoutSumW, holdoutSumWLogW) /
                                         n;
+                                return holdoutEntropy;
                             })
                             .sum();
                 })
@@ -103,13 +113,13 @@ public class SampleEntropyStateFixedHistogramJacknifeStrategy
         return entropy;
     }
 
-    private double calculateEntropy(double sumW, double sumWLogW)
+    private double calculateEntropy(double width, double sumW, double sumWLogW)
     {
         if (sumW == 0.0) {
             return 0.0;
         }
         final double entropy = Math.max(
-                (Math.log(sumW) - sumWLogW / sumW) / Math.log(2.0),
+                (Math.log(width * sumW) - sumWLogW / sumW) / Math.log(2.0),
                 0.0);
         return entropy;
     }
@@ -138,8 +148,8 @@ public class SampleEntropyStateFixedHistogramJacknifeStrategy
     }
 
     @Override
-    public SampleEntropyStateStrategy clone()
+    public DifferentialEntropyStateStrategy clone()
     {
-        return new SampleEntropyStateFixedHistogramJacknifeStrategy(this);
+        return new DifferentialEntropyStateFixedHistogramJacknifeStrategy(this);
     }
 }

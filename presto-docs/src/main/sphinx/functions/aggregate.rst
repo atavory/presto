@@ -334,7 +334,7 @@ Statistical Aggregate Functions
    `weight`, a non-negative weight column. The mutual information is non-negative.
 
     The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, and `'histogram_mle`.
+    See :func:`differential_entropy` for the meaning of `bucketCount`, `weight`, and `'histogram_mle`.
 
 .. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight) -> double
 
@@ -351,7 +351,7 @@ Statistical Aggregate Functions
    `weight`, a non-negative weight column. The mutual information is non-negative.
 
     The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_mle`, `min`
+    See :func:`differential_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_mle`, `min`
     and `max`.
 
 .. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
@@ -361,10 +361,10 @@ Statistical Aggregate Functions
    `weight`, a non-negative weight column. The mutual information is non-negative.
 
     The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_jacknife`, `min`
+    See :func:`differential_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_jacknife`, `min`
     and `max`.
 
-.. function :: sample_entropy(bucketCount, sample, weight, 'histogram_mle') -> double
+.. function :: differential_entropy(bucketCount, sample, weight, 'histogram_mle') -> double
 
     Returns the approximate log-2 entropy from a random variable's sample outcomes based on the
     maximal-likelihood estimation of a histogram of the data using `bucketCount`
@@ -372,15 +372,15 @@ Statistical Aggregate Functions
     variant of sample entropy estimation is convenient for use, but might be inexact for small numbers of
     samples.
 
-.. function :: sample_entropy(bucketCount, sample, weight) -> double
+.. function :: differential_entropy(bucketCount, sample, weight) -> double
 
-    Same as :func:`sample_entropy(bucketCount, sample, weight, 'histogram_mle').
+    Same as :func:`differential_entropy(bucketCount, sample, weight, 'histogram_mle').
 
-.. function :: sample_entropy(bucketCount, sample) -> double
+.. function :: differential_entropy(bucketCount, sample) -> double
 
-    Same as :func:`sample_entropy(bucketCount, sample, 1.0, 'histogram_mle').
+    Same as :func:`differential_entropy(bucketCount, sample, 1.0, 'histogram_mle').
 
-.. function :: sample_entropy(bucketCount, sample, weight, 'fixed_histogram_mle', min, max) -> double
+.. function :: differential_entropy(bucketCount, sample, weight, 'fixed_histogram_mle', min, max) -> double
 
     Returns the approximate log-2 entropy from a random variable's sample outcomes based on the
     maximal-likelihood estimation of a fixed-bin histogram of the data using `bucketCount`
@@ -388,7 +388,7 @@ Statistical Aggregate Functions
     variant of sample entropy estimation is convenient for use, but might be less exact for small numbers of
     samples.
 
-.. function :: sample_entropy(bucketCount, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
+.. function :: differential_entropy(bucketCount, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
 
     Returns the approximate log-2 entropy from a random variable's sample outcomes based on the
     maximal-likelihood estimation of a fixed-bin histogram of the data using `bucketCount`
@@ -399,80 +399,6 @@ Statistical Aggregate Functions
 
         Beirlant, Dudewicz, Gyorfi, and van der Meulen,
        "Nonparametric entropy estimation: an overview", (2001)
-
-.. function:: sample_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'histogram_mle') -> double
-
-    Returns the mutual information score between samples of
-   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
-   `weight`, a non-negative weight column. The mutual information is non-negative.
-
-    The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, and `'histogram_mle`.
-
-.. function:: sample_mutual_information_score(bucketCount, min, max, outcome, sample, weight) -> double
-
-    Same as :func:`sample_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'histogram_mle')``
-
-.. function:: sample_mutual_information_score(bucketCount, min, max, outcome, sample) -> double
-
-    Same as :func:`sample_mutual_information_score(bucketCount, min, max, outcome, sample, 1.0, 'histogram_mle')``
-
-.. function:: sample_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_mle', min, max) -> double
-
-    Returns the mutual information score between samples of
-   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
-   `weight`, a non-negative weight column. The mutual information is non-negative.
-
-    The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_mle`, `min`
-    and `max`.
-
-.. function:: sample_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
-
-    Returns the mutual information score between samples of
-   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
-   `weight`, a non-negative weight column. The mutual information is non-negative.
-
-    The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_jacknife`, `min`
-    and `max`.
-
-.. function:: sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'histogram_mle') -> double
-
-    Returns the [normalized mutual information score](https://en.wikipedia.org/wiki/Mutual_information) between samples of
-   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
-   `weight`, a non-negative weight column. The mutual information is non-negative.
-
-    The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, and `'histogram_mle`.
-
-.. function:: sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample, weight) -> double
-
-    Same as :func:`sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'histogram_mle')``
-
-.. function:: sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample) -> double
-
-    Same as :func:`sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample, 1.0, 'histogram_mle')``
-
-.. function:: sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_mle', min, max) -> double
-
-    Returns the [normalized mutual information score](https://en.wikipedia.org/wiki/Mutual_information) between samples of
-   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
-   `weight`, a non-negative weight column. The mutual information is non-negative.
-
-    The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_mle`, `min`
-    and `max`.
-
-.. function:: sample_normalized_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
-
-    Returns the [normalized mutual information score](https://en.wikipedia.org/wiki/Mutual_information) between samples of
-   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
-   `weight`, a non-negative weight column. The mutual information is non-negative.
-
-    The mutual information is calculated by estimating the reduction in entropy by outcome.
-    See :func:`sample_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_jacknife`, `min`
-    and `max`.
 
 .. function:: skewness(x) -> double
 

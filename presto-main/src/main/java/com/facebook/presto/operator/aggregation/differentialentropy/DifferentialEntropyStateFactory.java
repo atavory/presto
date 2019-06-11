@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
@@ -19,38 +19,38 @@ import com.facebook.presto.spi.function.AccumulatorStateFactory;
 
 import static java.util.Objects.requireNonNull;
 
-public class SampleEntropyStateFactory
-        implements AccumulatorStateFactory<SampleEntropyState>
+public class DifferentialEntropyStateFactory
+        implements AccumulatorStateFactory<DifferentialEntropyState>
 {
     @Override
-    public SampleEntropyState createSingleState()
+    public DifferentialEntropyState createSingleState()
     {
         return new SingleState();
     }
 
     @Override
-    public Class<? extends SampleEntropyState> getSingleStateClass()
+    public Class<? extends DifferentialEntropyState> getSingleStateClass()
     {
         return SingleState.class;
     }
 
     @Override
-    public SampleEntropyState createGroupedState()
+    public DifferentialEntropyState createGroupedState()
     {
         return new GroupedState();
     }
 
     @Override
-    public Class<? extends SampleEntropyState> getGroupedStateClass()
+    public Class<? extends DifferentialEntropyState> getGroupedStateClass()
     {
         return GroupedState.class;
     }
 
     public static class GroupedState
             extends AbstractGroupedAccumulatorState
-            implements SampleEntropyState
+            implements DifferentialEntropyState
     {
-        private final ObjectBigArray<SampleEntropyStateStrategy> strategies = new ObjectBigArray<>();
+        private final ObjectBigArray<DifferentialEntropyStateStrategy> strategies = new ObjectBigArray<>();
         private long size;
 
         @Override
@@ -60,11 +60,11 @@ public class SampleEntropyStateFactory
         }
 
         @Override
-        public void setStrategy(SampleEntropyStateStrategy strategy)
+        public void setStrategy(DifferentialEntropyStateStrategy strategy)
         {
             requireNonNull(strategy, "strategy is null");
 
-            SampleEntropyStateStrategy previous = getStrategy();
+            DifferentialEntropyStateStrategy previous = getStrategy();
             if (previous != null) {
                 size -= previous.estimatedInMemorySize();
             }
@@ -74,7 +74,7 @@ public class SampleEntropyStateFactory
         }
 
         @Override
-        public SampleEntropyStateStrategy getStrategy()
+        public DifferentialEntropyStateStrategy getStrategy()
         {
             return strategies.get(getGroupId());
         }
@@ -87,12 +87,12 @@ public class SampleEntropyStateFactory
     }
 
     public static class SingleState
-            implements SampleEntropyState
+            implements DifferentialEntropyState
     {
-        private SampleEntropyStateStrategy strategy;
+        private DifferentialEntropyStateStrategy strategy;
 
         @Override
-        public void setStrategy(SampleEntropyStateStrategy strategy)
+        public void setStrategy(DifferentialEntropyStateStrategy strategy)
         {
             requireNonNull(strategy, "strategy is null");
 
@@ -100,7 +100,7 @@ public class SampleEntropyStateFactory
         }
 
         @Override
-        public SampleEntropyStateStrategy getStrategy()
+        public DifferentialEntropyStateStrategy getStrategy()
         {
             return strategy;
         }

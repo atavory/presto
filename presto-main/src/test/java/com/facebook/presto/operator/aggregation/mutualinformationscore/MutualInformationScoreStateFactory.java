@@ -51,7 +51,7 @@ public class MutualInformationScoreStateFactory
             extends AbstractGroupedAccumulatorState
             implements MutualInformationScoreState
     {
-        private final ObjectBigArray<SampleEntropyMap> maps = new ObjectBigArray<>();
+        private final ObjectBigArray<DifferentialEntropyMap> maps = new ObjectBigArray<>();
         private long size;
 
         @Override
@@ -61,11 +61,11 @@ public class MutualInformationScoreStateFactory
         }
 
         @Override
-        public void set(SampleEntropyMap entropyMap)
+        public void set(DifferentialEntropyMap entropyMap)
         {
             requireNonNull(entropyMap, "entropyMap is null");
 
-            SampleEntropyMap previous = get();
+            DifferentialEntropyMap previous = get();
             if (previous != null) {
                 size -= previous.estimatedInMemorySize();
             }
@@ -75,7 +75,7 @@ public class MutualInformationScoreStateFactory
         }
 
         @Override
-        public SampleEntropyMap get()
+        public DifferentialEntropyMap get()
         {
             return maps.get(getGroupId());
         }
@@ -90,10 +90,10 @@ public class MutualInformationScoreStateFactory
     public static class SingleState
             implements MutualInformationScoreState
     {
-        private SampleEntropyMap entropyMap;
+        private DifferentialEntropyMap entropyMap;
 
         @Override
-        public void set(SampleEntropyMap entropyMap)
+        public void set(DifferentialEntropyMap entropyMap)
         {
             requireNonNull(entropyMap, "entropyMap is null");
 

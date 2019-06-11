@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -29,44 +29,41 @@ import static com.facebook.presto.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
-public class SampleEntropyStateSerializer
-        implements AccumulatorStateSerializer<SampleEntropyState>
+/*
+Serializes sample-entropy states.
+ */
+public class DifferentialEntropyStateSerializer
+        implements AccumulatorStateSerializer<DifferentialEntropyState>
 {
-    public static SampleEntropyStateStrategy create(
+    public static DifferentialEntropyStateStrategy create(
             long size,
             String method,
             Double arg0,
             Double arg1)
     {
-        if (method == null || method.equalsIgnoreCase("histogram_mle")) {
-            return new SampleEntropyStateHistogramMLEStrategy(size);
-        }
+        /*
+        Place-holder for reservoir-sampling
+        */
 
         if (method.equalsIgnoreCase("fixed_histogram_mle")) {
-            return new SampleEntropyStateFixedHistogramMLEStrategy(size, arg0, arg1);
+            return new DifferentialEntropyStateFixedHistogramMLEStrategy(size, arg0, arg1);
         }
 
         if (method.equalsIgnoreCase("fixed_histogram_jacknife")) {
-            return new SampleEntropyStateFixedHistogramJacknifeStrategy(size, arg0, arg1);
+            return new DifferentialEntropyStateFixedHistogramJacknifeStrategy(size, arg0, arg1);
         }
 
         throw new InvalidParameterException(String.format("unknown method %s", method));
     }
 
-    public static void validate(String method, SampleEntropyStateStrategy strategy)
+    public static void validate(String method, DifferentialEntropyStateStrategy strategy)
     {
-        if (method == null || method.equalsIgnoreCase("histogram_mle")) {
-            if (!(strategy instanceof SampleEntropyStateHistogramMLEStrategy)) {
-                throw new PrestoException(
-                        INVALID_FUNCTION_ARGUMENT,
-                        "Inconsistent method");
-            }
-
-            return;
-        }
+        /*
+        Place-holder for reservoir-sampling
+         */
 
         if (method.equalsIgnoreCase("fixed_histogram_mle")) {
-            if (!(strategy instanceof SampleEntropyStateFixedHistogramMLEStrategy)) {
+            if (!(strategy instanceof DifferentialEntropyStateFixedHistogramMLEStrategy)) {
                 throw new PrestoException(
                         INVALID_FUNCTION_ARGUMENT,
                         "Inconsistent method");
@@ -76,7 +73,7 @@ public class SampleEntropyStateSerializer
         }
 
         if (method.equalsIgnoreCase("fixed_histogram_jacknife")) {
-            if (!(strategy instanceof SampleEntropyStateFixedHistogramJacknifeStrategy)) {
+            if (!(strategy instanceof DifferentialEntropyStateFixedHistogramJacknifeStrategy)) {
                 throw new PrestoException(
                         INVALID_FUNCTION_ARGUMENT,
                         "Inconsistent method");
@@ -88,35 +85,29 @@ public class SampleEntropyStateSerializer
         throw new InvalidParameterException("unknown method");
     }
 
-    public static void combine(SampleEntropyStateStrategy target, SampleEntropyStateStrategy source)
+    public static void combine(DifferentialEntropyStateStrategy target, DifferentialEntropyStateStrategy source)
     {
-        if (target instanceof SampleEntropyStateHistogramMLEStrategy) {
-            if (!(source instanceof SampleEntropyStateHistogramMLEStrategy)) {
+        /*
+        Place-holder for reservoir-sampling
+        }*/
+
+        if (target instanceof DifferentialEntropyStateFixedHistogramMLEStrategy) {
+            if (!(source instanceof DifferentialEntropyStateFixedHistogramMLEStrategy)) {
                 throw new PrestoException(
                         INVALID_FUNCTION_ARGUMENT,
                         "Inconsistent strategy");
             }
-            ((SampleEntropyStateHistogramMLEStrategy) target).mergeWith((SampleEntropyStateHistogramMLEStrategy) source);
+            ((DifferentialEntropyStateFixedHistogramMLEStrategy) target).mergeWith((DifferentialEntropyStateFixedHistogramMLEStrategy) source);
             return;
         }
 
-        if (target instanceof SampleEntropyStateFixedHistogramMLEStrategy) {
-            if (!(source instanceof SampleEntropyStateFixedHistogramMLEStrategy)) {
+        if (target instanceof DifferentialEntropyStateFixedHistogramJacknifeStrategy) {
+            if (!(source instanceof DifferentialEntropyStateFixedHistogramJacknifeStrategy)) {
                 throw new PrestoException(
                         INVALID_FUNCTION_ARGUMENT,
                         "Inconsistent strategy");
             }
-            ((SampleEntropyStateFixedHistogramMLEStrategy) target).mergeWith((SampleEntropyStateFixedHistogramMLEStrategy) source);
-            return;
-        }
-
-        if (target instanceof SampleEntropyStateFixedHistogramJacknifeStrategy) {
-            if (!(source instanceof SampleEntropyStateFixedHistogramJacknifeStrategy)) {
-                throw new PrestoException(
-                        INVALID_FUNCTION_ARGUMENT,
-                        "Inconsistent strategy");
-            }
-            ((SampleEntropyStateFixedHistogramJacknifeStrategy) target).mergeWith((SampleEntropyStateFixedHistogramJacknifeStrategy) source);
+            ((DifferentialEntropyStateFixedHistogramJacknifeStrategy) target).mergeWith((DifferentialEntropyStateFixedHistogramJacknifeStrategy) source);
             return;
         }
 
@@ -130,26 +121,26 @@ public class SampleEntropyStateSerializer
     }
 
     @Override
-    public void serialize(SampleEntropyState state, BlockBuilder out)
+    public void serialize(DifferentialEntropyState state, BlockBuilder out)
     {
         final int requiredBytes =
                 SizeOf.SIZE_OF_INT + // Method
-                (state.getStrategy() == null ? 0 : state.getStrategy().getRequiredBytesForSerialization());
+                        (state.getStrategy() == null ? 0 : state.getStrategy().getRequiredBytesForSerialization());
 
-        final SampleEntropyStateStrategy strategy = state.getStrategy();
+        final DifferentialEntropyStateStrategy strategy = state.getStrategy();
 
         SliceOutput sliceOut = Slices.allocate(requiredBytes).getOutput();
 
         if (strategy == null) {
             sliceOut.appendInt(0);
         }
-        else if (strategy instanceof SampleEntropyStateHistogramMLEStrategy) {
-            sliceOut.appendInt(1);
-        }
-        else if (strategy instanceof SampleEntropyStateFixedHistogramMLEStrategy) {
+        /*
+        Placeholder for reservoir sampling.
+         */
+        else if (strategy instanceof DifferentialEntropyStateFixedHistogramMLEStrategy) {
             sliceOut.appendInt(2);
         }
-        else if (strategy instanceof SampleEntropyStateFixedHistogramJacknifeStrategy) {
+        else if (strategy instanceof DifferentialEntropyStateFixedHistogramJacknifeStrategy) {
             sliceOut.appendInt(3);
         }
         else {
@@ -167,42 +158,43 @@ public class SampleEntropyStateSerializer
     public void deserialize(
             Block block,
             int index,
-            SampleEntropyState state)
+            DifferentialEntropyState state)
     {
-        SampleEntropyStateSerializer.deserialize(
+        DifferentialEntropyStateSerializer.deserialize(
                 VARBINARY.getSlice(block, index).getInput(),
                 state);
     }
 
     public static void deserialize(
             SliceInput input,
-            SampleEntropyState state)
+            DifferentialEntropyState state)
     {
-        final int method = input.readInt();
-        final SampleEntropyStateStrategy strategy =
-                SampleEntropyStateSerializer.deserializeStrategy(input);
+        final DifferentialEntropyStateStrategy strategy =
+                DifferentialEntropyStateSerializer.deserializeStrategy(input);
         if (strategy == null && state.getStrategy() != null) {
             throw new PrestoException(
                     CONSTRAINT_VIOLATION,
                     "strategy is not null for null method");
         }
-        state.setStrategy(strategy);
+        if (strategy != null) {
+            state.setStrategy(strategy);
+        }
     }
 
-    public static SampleEntropyStateStrategy deserializeStrategy(SliceInput input)
+    public static DifferentialEntropyStateStrategy deserializeStrategy(SliceInput input)
     {
         final int method = input.readInt();
         if (method == 0) {
             return null;
         }
-        if (method == 1) {
-            return new SampleEntropyStateHistogramMLEStrategy(input);
-        }
+        /*
+        Place-holder for reservoir-sampling
+         */
         if (method == 2) {
-            return new SampleEntropyStateFixedHistogramMLEStrategy(input);
+            return new DifferentialEntropyStateFixedHistogramMLEStrategy(input);
         }
         if (method == 3) {
-            return new SampleEntropyStateFixedHistogramJacknifeStrategy(input);
+            return new DifferentialEntropyStateFixedHistogramJacknifeStrategy(input);
         }
         throw new InvalidParameterException("unknown method in deserialize");
     }

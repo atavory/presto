@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import java.util.ArrayList;
 
-public class TestSampleEntropyFixedHistogramJacknifeAggregation
-        extends TestSampleEntropyFixedHistogramAggregation
+public class TestDifferentialEntropyFixedHistogramJacknifeAggregation
+        extends TestDifferentialEntropyFixedHistogramAggregation
 {
-    public TestSampleEntropyFixedHistogramJacknifeAggregation()
+    public TestDifferentialEntropyFixedHistogramJacknifeAggregation()
     {
         super("fixed_histogram_jacknife");
     }

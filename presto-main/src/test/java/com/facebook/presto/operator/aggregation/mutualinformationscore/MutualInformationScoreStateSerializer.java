@@ -38,7 +38,7 @@ public class MutualInformationScoreStateSerializer
     @Override
     public void serialize(MutualInformationScoreState state, BlockBuilder out)
     {
-        final SampleEntropyMap entropyMap = state.getEntropyMap();
+        final DifferentialEntropyMap entropyMap = state.getEntropyMap();
         int requiredBytes = SizeOf.SIZE_OF_LONG; // Outcome cardinality
 
         if (entropyMap == 0) {
@@ -72,7 +72,7 @@ public class MutualInformationScoreStateSerializer
             MutualInformationScoreState state)
     {
         final SliceInput input = VARBINARY.getSlice(block, index).getInput();
-        final SampleEntropyMap entropyMap = new SampleEntropyMap();
+        final DifferentialEntropyMap entropyMap = new DifferentialEntropyMap();
         final long numOutcomes = input.readLong();
         if (numOutcomes > 0) {
             entropyMap.entropyStrategy = new SampleEntropyStateSerializer().deserialize();

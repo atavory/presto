@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 public interface MutualInformationScoreState
         extends AccumulatorState
 {
-    void setEntropyMap(SampleEntropyMap entropyMap);
+    void setEntropyMap(DifferentialEntropyMap entropyMap);
 
-    SampleEntropyMap getEntropyMap();
+    DifferentialEntropyMap getEntropyMap();
 }

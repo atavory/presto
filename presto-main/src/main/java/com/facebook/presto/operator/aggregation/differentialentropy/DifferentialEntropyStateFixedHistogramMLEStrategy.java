@@ -11,27 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
 import com.google.common.collect.Streams;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-public class SampleEntropyStateFixedHistogramMLEStrategy
-        extends SampleEntropyStateFixedHistogramStrategy
+/*
+Calculates sample entropy using MLE (maximumum likelihood estimates) on a NumericHistogram.
+ */
+public class DifferentialEntropyStateFixedHistogramMLEStrategy
+        extends DifferentialEntropyStateFixedHistogramStrategy
 {
-    public SampleEntropyStateFixedHistogramMLEStrategy(long bucketCount, double min, double max)
+    public DifferentialEntropyStateFixedHistogramMLEStrategy(long bucketCount, double min, double max)
     {
         super(new FixedDoubleHistogram((int) bucketCount, min, max));
     }
 
-    protected SampleEntropyStateFixedHistogramMLEStrategy(SampleEntropyStateFixedHistogramMLEStrategy other)
+    protected DifferentialEntropyStateFixedHistogramMLEStrategy(DifferentialEntropyStateFixedHistogramMLEStrategy other)
     {
         super(other.getWeightHistogram().clone());
     }
 
-    public SampleEntropyStateFixedHistogramMLEStrategy(SliceInput input)
+    public DifferentialEntropyStateFixedHistogramMLEStrategy(SliceInput input)
     {
         super(new FixedDoubleHistogram(input));
     }
@@ -63,13 +66,13 @@ public class SampleEntropyStateFixedHistogramMLEStrategy
             return 0.0;
         }
 
-        return Streams.stream(getWeightHistogram().iterator())
+        final double rawEntropy = Streams.stream(getWeightHistogram().iterator())
                 .mapToDouble(w -> {
-                    final double width = w.right - w.left;
                     final double prob = w.weight / sum;
-                    return prob == 0 ? 0 : prob * Math.log(width / prob);
+                    return -super.getXLogX(prob);
                 })
                 .sum() / Math.log(2);
+        return rawEntropy + Math.log(getWeightHistogram().getWidth()) / Math.log(2);
     }
 
     @Override
@@ -85,10 +88,10 @@ public class SampleEntropyStateFixedHistogramMLEStrategy
     }
 
     @Override
-    public void mergeWith(SampleEntropyStateStrategy other)
+    public void mergeWith(DifferentialEntropyStateStrategy other)
     {
         getWeightHistogram()
-                .mergeWith(((SampleEntropyStateFixedHistogramMLEStrategy) other).getWeightHistogram());
+                .mergeWith(((DifferentialEntropyStateFixedHistogramMLEStrategy) other).getWeightHistogram());
     }
 
     @Override
@@ -103,8 +106,8 @@ public class SampleEntropyStateFixedHistogramMLEStrategy
     }
 
     @Override
-    public SampleEntropyStateStrategy clone()
+    public DifferentialEntropyStateStrategy clone()
     {
-        return new SampleEntropyStateFixedHistogramMLEStrategy(this);
+        return new DifferentialEntropyStateFixedHistogramMLEStrategy(this);
     }
 }

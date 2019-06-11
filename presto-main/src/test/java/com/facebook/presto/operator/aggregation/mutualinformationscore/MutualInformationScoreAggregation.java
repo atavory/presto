@@ -107,7 +107,7 @@ public final class MutualInformationScoreAggregation
             state.setEntropyMap((SampleEntropyStateSerializer.create(
                     size, requestedMethod, arg0, arg1)));
         }
-        final SampleEntropyMap entropyMap = state.getEntropyMap();
+        final DifferentialEntropyMap entropyMap = state.getEntropyMap();
         MutualInformationScoreStateSerializer.validate(requestedMethod, entropyMap.entropyStrategy);
         entropyMap.entropyStrategy.validateParams(size, sample, weight, arg0, arg1);
         if (!entropyMap.outcomeEntropyStrategies.containsKey(outcome)) {
@@ -124,8 +124,8 @@ public final class MutualInformationScoreAggregation
             @AggregationState MutualInformationScoreState state,
             @AggregationState MutualInformationScoreState otherState)
     {
-        final SampleEntropyMap entropyMap = state.getEntropyMap();
-        final SampleEntropyMap otherEntropyMap = otherState.getEntropyMap();
+        final DifferentialEntropyMap entropyMap = state.getEntropyMap();
+        final DifferentialEntropyMap otherEntropyMap = otherState.getEntropyMap();
         if (entropyMap == null && otherEntropyMap != null) {
             entropyMap.setStrategy(otherEntropyMap.clone());
             return;
@@ -138,7 +138,7 @@ public final class MutualInformationScoreAggregation
     @OutputFunction("double")
     public static void output(@AggregationState MutualInformationScoreState state, BlockBuilder out)
     {
-        final SampleEntropyMap entropyMap = state.getEntropyMap();
+        final DifferentialEntropyMap entropyMap = state.getEntropyMap();
         if (entropyMap == null) {
             DOUBLE.writeDouble(out, 0.0);
             return;

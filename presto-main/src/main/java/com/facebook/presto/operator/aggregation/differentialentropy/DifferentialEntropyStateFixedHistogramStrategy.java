@@ -11,19 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogram;
 import com.facebook.presto.spi.PrestoException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-public abstract class SampleEntropyStateFixedHistogramStrategy
-        extends SampleEntropyStateStrategy
+/*
+Abstract base class for different strategies for calculating entropy based on fixed histograms.
+ */
+public abstract class DifferentialEntropyStateFixedHistogramStrategy
+        extends DifferentialEntropyStateStrategy
 {
     protected final FixedHistogram histogram;
 
-    public SampleEntropyStateFixedHistogramStrategy(FixedHistogram histogram)
+    public DifferentialEntropyStateFixedHistogramStrategy(FixedHistogram histogram)
     {
         this.histogram = histogram;
     }

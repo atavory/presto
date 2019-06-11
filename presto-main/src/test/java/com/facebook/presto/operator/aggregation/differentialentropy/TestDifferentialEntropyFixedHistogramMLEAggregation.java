@@ -11,34 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
-
-import com.facebook.presto.operator.aggregation.NumericHistogram;
-import com.google.common.collect.Lists;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import java.util.ArrayList;
 
-public class TestSampleEntropyHistogramMLEAggregation
-        extends TestSampleEntropyAggregation
+public class TestDifferentialEntropyFixedHistogramMLEAggregation
+        extends TestDifferentialEntropyFixedHistogramAggregation
 {
-    public TestSampleEntropyHistogramMLEAggregation()
+    public TestDifferentialEntropyFixedHistogramMLEAggregation()
     {
-        super("histogram_mle", null, null);
+        super("fixed_histogram_mle");
     }
 
     @Override
     public Double getExpectedValue(int start, int length)
     {
-        final NumericHistogram histogram =
-                new NumericHistogram(TestSampleEntropyAggregation.SIZE);
         final ArrayList<Double> samples = new ArrayList<Double>();
         final ArrayList<Double> weights = new ArrayList<Double>();
         super.getSamplesAndWeights(start, length, samples, weights);
-        for (int i = 0; i < samples.size(); ++i) {
-            histogram.add(samples.get(i), weights.get(i));
-        }
-        return super.getEntropyFromSamplesAndWeights(
-                Lists.newArrayList(histogram.getBuckets().keySet().iterator()),
-                Lists.newArrayList(histogram.getBuckets().values().iterator()));
+        return super.getEntropyFromSamplesAndWeights(samples, weights);
     }
 }

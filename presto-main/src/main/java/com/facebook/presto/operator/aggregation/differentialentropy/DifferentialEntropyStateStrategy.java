@@ -11,14 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.sampleentropy;
+package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-public abstract class SampleEntropyStateStrategy
+/*
+Abstract base class for different strategies for calculating entropy: MLE (maximum likelihood
+estimator) using NumericHistogram, jacknife estimates using a fixed histogram, compressed
+counting and Renyi entropy, and so forth.
+ */
+public abstract class DifferentialEntropyStateStrategy
         implements Cloneable
 {
     public void validateParams(
@@ -45,8 +50,13 @@ public abstract class SampleEntropyStateStrategy
 
     public abstract void serialize(SliceOutput out);
 
-    public abstract void mergeWith(SampleEntropyStateStrategy other);
+    public abstract void mergeWith(DifferentialEntropyStateStrategy other);
 
     @Override
-    public abstract SampleEntropyStateStrategy clone();
+    public abstract DifferentialEntropyStateStrategy clone();
+
+    protected double getXLogX(double x)
+    {
+        return x <= 0.0 ? 0.0 : x * Math.log(x);
+    }
 }

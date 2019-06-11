@@ -13,28 +13,27 @@
  */
 package com.facebook.presto.operator.aggregation.mutualinformationscore;
 
-import com.facebook.presto.operator.aggregation.sampleentropy.SampleEntropyState;
-import com.facebook.presto.operator.aggregation.sampleentropy.SampleEntropyStateStrategy;
+import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyState;
 import io.airlift.slice.SizeOf;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class SampleEntropyMap
+public class DifferentialEntropyMap
         implements Cloneable
 {
-    public final SampleEntropyStateStrategy entropyStrategy = null;
-    public final Map<Long, SampleEntropyStateStrategy> outcomeEntropyStrategies =
-            new HashMap<Long, SampleEntropyState>();
+    public final DifferentialEntropyState entropyState = null;
+    public final Map<Long, DifferentialEntropyState> outcomeEntropyStates =
+            new HashMap<Long, DifferentialEntropyState>();
 
     public long estimatedInMemorySize()
     {
-        if (entropyStrategy == null) {
+        if (entropyState == null) {
             return 0;
         }
-        return entropyStrategy.estimatedInMemorySize() +
-            outcomeEntropyStrategies.values().stream()
-                .mapToLong(m -> SizeOf.SIZE_OF_LONG + m.estimatedInMemorySize())
+        return entropyState.getStrategy().estimatedInMemorySize() +
+            outcomeEntropyStates.values().stream()
+                .mapToLong(m -> SizeOf.SIZE_OF_LONG + m.getStrategy().estimatedInMemorySize())
                 .sum();
     }
 }

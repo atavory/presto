@@ -80,6 +80,11 @@ public class FixedHistogram
         return max;
     }
 
+    public double getWidth()
+    {
+        return (max - min) / bucketCount;
+    }
+
     protected int getRequiredBytesForSerialization()
     {
         return SizeOf.SIZE_OF_BYTE + // format
